@@ -10,6 +10,9 @@ Project goals:
 * Be able to change oscillation point on the fly
 
 
+------
+
 Resources:
+
 Specs for the OSSM
 https://kinkymakers.com/projects/open-source-sex-machine/
