@@ -1,0 +1,134 @@
+// I suck at coding. What i want is to be able to use a rotary encoder to manually move the dildo and then start the in-out
+// motion from that spot. I can't make those two actions co-exist so i have to do the ugly hack of a switch to pick which mode
+// Hell I can't even make the thing move back and forth reliably without using the runtonewposition command which is blocking so there's no changing once the stroke started
+// *** THE DREAM*** : be able to change speed stroke and even position at any time even during a stroke. Sigh. That's sooooo beyond me.
+
+#include <AccelStepper.h>
+
+// arduino pin numbers
+#define analogSpeedPin A0
+#define analogStrokePin A1
+#define modepinnum 7
+#define inputCLK 8
+#define inputDT 9
+
+// ***** CHANGE THESE ACCORDING TO YOUR SETUP!!!! *****
+// I'm using 1600 steps per rev on driver, 60 tooth pulley, 1000 ppr encoder
+#define encodersteps 8
+#define encoderspeed 500  
+#define speedLimit 128000 // max on a 16-bit arduino like an uno is 32,767. I'm insane BTW. this should be in the hundreds or low thousands
+#define speedMin 200 // if you put this too low you may wind up waiting for a loooong time while a stroke finishes. it might even look like the thing crashed
+#define strokeLimit 2400 // about 150mm with a 60-tooth pulley at 1600 steps/rev
+#define strokeMin 100 // too low and you have an expensive vibrator. hope everything is loctited
+
+int currentStateCLK;
+int previousStateCLK;
+
+float analogSpeed = 0;
+float speedValue = 0;
+
+float analogStroke = 0;
+float strokeValue = 0;
+
+
+
+AccelStepper stepper(1,2,3); // step-dir type driver with pin 2 as step and 3 as dir
+void setup()
+{  
+    
+ pinMode(modepinnum, INPUT_PULLUP); // the modepin connects to ground when in-out action is wanted, floats (pulled high) for encoder mode 
+ pinMode (inputCLK,INPUT);
+ pinMode (inputDT,INPUT);
+ // BTW pinMode for 2 and 3 - the step and dir pins to the driver got defined when we called AccelStepper stepper(1,2,3) 
+
+ // setup initial readings and values for speed and stroke
+ analogSpeed = analogRead(analogSpeedPin);
+ speedValue = map(analogSpeed, 0, 1023, speedMin, speedLimit); // at 0V will be speedMin, at 5V (or 3.3 on a Due) will be speedLimit
+ analogStroke = analogRead(analogStrokePin);
+ strokeValue = map(analogStroke, 0, 1023, strokeMin, strokeLimit);
+    
+ stepper.setMaxSpeed(speedValue);
+ stepper.setAcceleration(6.0*speedValue); // i dunno why 6 - monkey with it. changing affects the speed where the machine is loudest it seems
+ previousStateCLK = digitalRead(inputCLK);
+}
+
+void loop()
+{
+      // look at state of pinmode switch
+      while(digitalRead(modepinnum) == HIGH){
+        // encoder mode
+          currentStateCLK = digitalRead(inputCLK); //read the clk pin of encoder
+          if (currentStateCLK != previousStateCLK){ 
+            // If the state changed then we have a pulse
+            
+              if (digitalRead(inputDT) != currentStateCLK) {
+            // If the data pin is opposite of clock pin then anticlockwise 
+                stepper.setMaxSpeed(encoderspeed);
+                stepper.setAcceleration(speedValue*60);
+                stepper.move(-encodersteps); // move the stepper so many steps
+                stepper.run();
+       
+            } else {
+            // clockwise
+                stepper.setMaxSpeed(encoderspeed);
+                stepper.setAcceleration(speedValue*60);
+                stepper.move(encodersteps);
+                stepper.run();
+              
+                }
+          }
+      previousStateCLK = currentStateCLK; 
+      }
+      
+    // in-out mode now that we've fallen out of the encoder-mode loop  
+    // Read the speed and stroke pots 
+    analogSpeed = analogRead(analogSpeedPin);
+    speedValue = map(analogSpeed, 0, 1023, speedMin, speedLimit);
+    analogStroke = analogRead(analogStrokePin);
+    strokeValue = map(analogStroke, 0, 1023, strokeMin, strokeLimit);
+    
+    // set the speed and acceleration  
+    stepper.setMaxSpeed(speedValue);
+    stepper.setAcceleration(speedValue*6); 
+
+    // move stepper anti-clockwise by the stroke value relative to it's current position. I wish i dodn't have to use this command
+    stepper.runToNewPosition(stepper.currentPosition()-strokeValue);
+
+
+  // now back in the other direction ...
+    
+      while(digitalRead(modepinnum) == HIGH){
+          currentStateCLK = digitalRead(inputCLK); 
+          if (currentStateCLK != previousStateCLK){ 
+            
+              if (digitalRead(inputDT) != currentStateCLK) { 
+                stepper.setMaxSpeed(encoderspeed);
+                stepper.setAcceleration(speedValue*60);
+                stepper.move(-encodersteps);
+                stepper.run();
+       
+            } else {
+
+                stepper.setMaxSpeed(encoderspeed);
+                stepper.setAcceleration(speedValue*60);
+                stepper.move(encodersteps);
+                stepper.run();
+              
+                }
+          }
+      previousStateCLK = currentStateCLK; 
+      } 
+    analogSpeed = analogRead(analogSpeedPin);
+    speedValue = map(analogSpeed, 0, 1023, speedMin, speedLimit);
+    analogStroke = analogRead(analogStrokePin);
+    strokeValue = map(analogStroke, 0, 1023, strokeMin, strokeLimit);
+      
+    stepper.setMaxSpeed(speedValue);
+    stepper.setAcceleration(speedValue*6);
+    
+    // move stepper anti-clockwise by the stroke value relative to it's current position
+    stepper.runToNewPosition(stepper.currentPosition()+strokeValue);
+
+}
+
+// someone do this correctly pretty please
