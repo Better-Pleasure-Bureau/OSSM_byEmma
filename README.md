@@ -2,6 +2,7 @@
 Coding project for controlling the Open Source Sex Machine (OSSM) Emma has built.
 
 Inputs:
+
 2x 10k rotary potentiometers: https://www.rpelectronics.com/62-224-1-1-2-watt-with-1a-switch-10k-linear.html
 
 1x Optical encoder: https://www.aliexpress.com/item/32892974727.html
